@@ -14,6 +14,7 @@ import {
   wednesdaysInMonth,
 } from "./dates.js";
 import { flagOf, isOn, load, noteOf, resetChecks, setCheck, setFlag, setNote } from "./store.js";
+import { THIS_WEEK } from "./this-week.js";
 
 const VIEWS = ["today", "week", "month", "quarter", "year"];
 
@@ -208,6 +209,69 @@ function renderClock() {
   els.badges.innerHTML = bits.join("");
 }
 
+function twId(id) {
+  return `tw:${THIS_WEEK.weekKey}:${id}`;
+}
+
+function twFix(item) {
+  if (!item.fix) return "";
+  const parts = escapeHtml(item.fix).split("{tel}");
+  const tel = item.tel
+    ? `<a class="tel-link" href="${escapeHtml(item.tel.href)}">${escapeHtml(item.tel.label)}</a>`
+    : "";
+  return `<p class="tw-fix"><b>Fix</b> ${parts.join(tel)}</p>`;
+}
+
+function renderThisWeek() {
+  const w = THIS_WEEK;
+  const ids = w.mustDo.map((m) => twId(m.id));
+  const { done, total } = count(ids);
+  const over = compareIso(now.iso, w.end) > 0;
+  const takeHome = w.takeHome === null || w.takeHome === undefined
+    ? `<span class="tw-pending">${escapeHtml(w.takeHomePending)}</span>`
+    : `<strong>${escapeHtml(w.takeHome)}</strong>`;
+  return `
+    <article class="card amber-edge this-week" data-this-week>
+      <div class="tw-head">
+        <div>
+          <h3>This week</h3>
+          <p class="lede">${escapeHtml(w.label)}</p>
+        </div>
+        <div class="progress">
+          <div class="progress-n tw-n">${done}/${total}</div>
+          <small>must-dos</small>
+        </div>
+      </div>
+      ${over ? `<p class="tw-stale">This week has ended. Update js/this-week.js for the next one.</p>` : ""}
+      <div class="tw-take">
+        <span class="tw-label">Take-home</span>
+        ${takeHome}
+        ${(w.confirmed || []).map((line) => `<span class="tw-confirmed">${escapeHtml(line)}</span>`).join("")}
+      </div>
+      <p class="tw-label">3 must-dos</p>
+      <div class="list tw-must">
+        ${w.mustDo.map((m) => checkRow({ id: twId(m.id), title: m.title, hint: m.hint, extraClass: "big" })).join("")}
+      </div>
+      <p class="tw-label">Bills + admin due</p>
+      <ol class="tw-due">
+        ${w.due.map((item) => `
+          <li class="tw-item">
+            <header>
+              <b>${escapeHtml(item.title)}</b>
+              ${item.amount ? `<span class="tw-amt">${escapeHtml(item.amount)}</span>` : ""}
+            </header>
+            ${item.status ? `<p class="tw-status">${escapeHtml(item.status)}</p>` : ""}
+            ${item.detail ? `<p>${escapeHtml(item.detail)}</p>` : ""}
+            ${twFix(item)}
+            ${item.links?.length ? `<div class="links">${item.links.map((k) => link(APPS[k], k === "pay" ? "Pay Ledger" : "GreenLedger")).join("")}</div>` : ""}
+          </li>
+        `).join("")}
+      </ol>
+      ${w.note ? `<p class="tw-note">${escapeHtml(w.note)}</p>` : ""}
+    </article>
+  `;
+}
+
 function renderToday() {
   const k = keys();
   const onCareer = careerOn();
@@ -283,6 +347,7 @@ function renderToday() {
       ${progressBox(done, total, "today")}
     </div>
     ${sleepBanner}${paydayBanner}${satBanner}${sunBanner}
+    ${renderThisWeek()}
     <div class="grid grid-2">
       <article class="card">
         <h3>Workday cage</h3>
@@ -690,9 +755,16 @@ document.addEventListener("change", (e) => {
   const row = box.closest(".check");
   if (row) row.classList.toggle("done", box.checked);
   const root = els.views[view];
-  const n = root.querySelector(".progress-n");
+  const tw = root.querySelector("[data-this-week]");
+  const twN = tw?.querySelector(".tw-n");
+  if (twN) {
+    const { done, total } = count([...tw.querySelectorAll("[data-check]")].map((el) => el.dataset.check));
+    twN.textContent = `${done}/${total}`;
+  }
+  const n = root.querySelector(".hero .progress-n");
   if (n) {
     const ids = [...root.querySelectorAll("[data-check]")]
+      .filter((el) => !el.closest("[data-this-week]"))
       .filter((el) => !el.closest(".check.optional") || careerOn())
       .map((el) => el.dataset.check);
     const { done, total } = count(ids);

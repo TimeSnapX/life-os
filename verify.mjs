@@ -8,6 +8,7 @@ import {
   weekDates,
   wednesdaysInMonth,
 } from "./js/dates.js";
+import { THIS_WEEK } from "./js/this-week.js";
 
 const fails = [];
 function eq(name, got, want) {
@@ -42,6 +43,14 @@ eq("cage 19:00", activeCageId(19 * 60, false), "body");
 eq("cage 20:40 career off", activeCageId(20 * 60 + 40, false), "wind");
 eq("cage 20:40 career on", activeCageId(20 * 60 + 40, true), "career");
 eq("cage 3:00", activeCageId(3 * 60, false), "wind");
+
+eq("this week starts Sat", formatLong(THIS_WEEK.start), "Saturday 26 Sep 2026");
+eq("this week ends Fri", formatLong(THIS_WEEK.end), "Friday 2 Oct 2026");
+eq("this week take-home confirmed", THIS_WEEK.takeHome.startsWith("$949.16"), true);
+eq("this week must-dos", THIS_WEEK.mustDo.length, 3);
+eq("this week due items", THIS_WEEK.due.length, 3);
+eq("this week confirmed", THIS_WEEK.confirmed, ["First Express leave payout: $325.37 (paid 24 Sep)", "Next pay likely Thu 1 Oct: pending payslip"]);
+eq("RACQ tel", THIS_WEEK.due.find((d) => d.id === "racq").tel.href, "tel:1800620712");
 
 if (fails.length) {
   console.error(fails.join("\n"));
